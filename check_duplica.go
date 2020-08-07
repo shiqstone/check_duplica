@@ -6,13 +6,16 @@ import (
 	"errors"
 	"flag"
 	"fmt"
+	"io"
 	"io/ioutil"
+	"log"
 	"os"
 	"path/filepath"
 	"sync"
 	"time"
 )
 
+var file *os.File
 var skip int64
 
 func init() {
@@ -25,6 +28,7 @@ func main() {
 	var dirname = flag.String("p", "", "the directory contains all the files")
 	var limit = flag.Int("m", 10, "limit the max files to caclulate.")
 	flag.Int64Var(&skip, "skip", 0, "skip file size small than set sizes, unit KB")
+	var output = flag.String("o", "", "the path of output check result, not save when set empty")
 	flag.Parse()
 
 	if *help {
@@ -40,6 +44,14 @@ func main() {
 	if *limit <= 0 {
 		fmt.Println("the max process limit must greater than 0")
 		return
+	}
+
+	if len(*output) > 0 {
+		var err error
+		file, err = os.Create(*output)
+		if err != nil {
+			log.Fatalln("fail to create output file!")
+		}
 	}
 
 	skip *= 1024
@@ -67,19 +79,19 @@ func main() {
 	gidx := 0
 	for _, ps := range md5map {
 		if len(ps) > 1 {
-			fmt.Printf("%d probablely duplica files \n", gidx)
+			logOutput("%d probablely duplica files \n", gidx)
 			//exist duplica file
 			for idx, path := range ps {
 				size := result[path]["size"].(int64)
-				fmt.Printf("%d path: %s | size=%d\n", idx, path, size)
+				logOutput("%d path: %s | size=%d\n", idx, path, size)
 				cnt++
 			}
-			fmt.Println("-------")
+			logOutput("-------%s\n", "-")
 			gidx++
 		}
 	}
 
-	fmt.Printf("overall %d group %d files probablely duplica \n", gidx, cnt)
+	logOutput("overall %d group %d files probablely duplica \n", gidx, cnt)
 
 	fmt.Println(time.Since(timeStart).String())
 }
@@ -91,6 +103,17 @@ Usage: ./check_duplica [-h] [-p path] [-m max_process]
 Options:
 `)
 	flag.PrintDefaults()
+}
+
+func logOutput(f string, v ...interface{}) {
+	fmt.Printf(f, v...)
+	wstring := fmt.Sprintf(f, v...)
+	if file != nil {
+		_, err := io.WriteString(file, wstring)
+		if err != nil {
+			log.Fatalln("fail to write output file!")
+		}
+	}
 }
 
 func Md5SumFile(file string) (value [md5.Size]byte, err error) {
