@@ -13,6 +13,8 @@ import (
 	"time"
 )
 
+var skip int64
+
 func init() {
 	flag.Usage = usage
 }
@@ -20,8 +22,9 @@ func init() {
 func main() {
 	timeStart := time.Now()
 	var help = flag.Bool("h", false, "this help")
-	var dirname = flag.String("p", "", "The directory contains all the files")
+	var dirname = flag.String("p", "", "the directory contains all the files")
 	var limit = flag.Int("m", 10, "limit the max files to caclulate.")
+	flag.Int64Var(&skip, "skip", 0, "skip file size small than set sizes, unit KB")
 	flag.Parse()
 
 	if *help {
@@ -38,6 +41,8 @@ func main() {
 		fmt.Println("the max process limit must greater than 0")
 		return
 	}
+
+	skip *= 1024
 
 	result, err := Md5SumFolder(*dirname, *limit)
 	if err != nil {
@@ -125,6 +130,10 @@ func Md5SumFolder(folder string, limit int) (map[string]map[string]interface{}, 
 			}
 
 			if !info.Mode().IsRegular() {
+				return nil
+			}
+
+			if skip > 0 && info.Size() < skip {
 				return nil
 			}
 
