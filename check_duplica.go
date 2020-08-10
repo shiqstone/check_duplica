@@ -17,6 +17,7 @@ import (
 
 var file *os.File
 var skip int64
+var ignoreErr bool
 
 func init() {
 	flag.Usage = usage
@@ -29,6 +30,7 @@ func main() {
 	var limit = flag.Int("m", 10, "limit the max files to caclulate.")
 	flag.Int64Var(&skip, "skip", 0, "skip file size small than set sizes, unit KB")
 	var output = flag.String("o", "", "the path of output check result, not save when set empty")
+	flag.BoolVar(&ignoreErr, "i", true, "ignore filepath permit errors and skip")
 	flag.Parse()
 
 	if *help {
@@ -149,6 +151,13 @@ func Md5SumFolder(folder string, limit int) (map[string]map[string]interface{}, 
 	go func() {
 		err := filepath.Walk(folder, func(path string, info os.FileInfo, err error) error {
 			if err != nil {
+				if ignoreErr {
+					if errObject, ok := err.(*os.PathError); ok {
+						//ignore file path error and continue
+						fmt.Println(errObject.Path, err)
+						return nil
+					}
+				}
 				return err
 			}
 
@@ -206,6 +215,13 @@ func Md5SumFolder(folder string, limit int) (map[string]map[string]interface{}, 
 
 	for r := range c {
 		if r.err != nil {
+			if ignoreErr {
+				if errObject, ok := r.err.(*os.PathError); ok {
+					//ignore file path error and continue
+					fmt.Println(errObject.Path, r.err)
+					continue
+				}
+			}
 			return nil, r.err
 		}
 		returnValue[r.path] = map[string]interface{}{
