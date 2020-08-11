@@ -10,7 +10,6 @@ import (
 	"io"
 	"io/ioutil"
 	"log"
-	"math"
 	"net/http"
 	_ "net/http/pprof"
 	"os"
@@ -183,7 +182,7 @@ func logOutput(f string, v ...interface{}) {
 	}
 }
 
-func Md5SumFile(filepath string) (value []byte, err error) {
+func Md5File(filepath string) (value []byte, err error) {
 	data, err := ioutil.ReadFile(filepath)
 	if err != nil {
 		return
@@ -193,21 +192,18 @@ func Md5SumFile(filepath string) (value []byte, err error) {
 	return
 }
 
-func Md5SumBigFile(filepath string, filesize int64) (value []byte, err error) {
-	file, err := os.Open(filepath)
+func Md5BigFile(filePath string) ([]byte, error) {
+	var result []byte
+	file, err := os.Open(filePath)
 	if err != nil {
-		return
+		return result, err
 	}
 	defer file.Close()
-	blocks := uint64(math.Ceil(float64(filesize) / float64(filechunk)))
 	hash := md5.New()
-	for i := uint64(0); i < blocks; i++ {
-		blocksize := int(math.Min(filechunk, float64(filesize-int64(i*filechunk))))
-		buf := make([]byte, blocksize)
-		file.Read(buf)
-		io.WriteString(hash, string(buf)) // append into the hash
+	if _, err := io.Copy(hash, file); err != nil {
+		return result, err
 	}
-	return hash.Sum(nil), err
+	return hash.Sum(result), nil
 }
 
 type result struct {
@@ -264,9 +260,9 @@ func Md5SumFolder(folder string, limit int) (map[string]map[string]interface{}, 
 				dir, _ := filepath.Split(path)
 				var md5v []byte
 				if size > bigFileSize {
-					md5v, err = Md5SumBigFile(path, size)
+					md5v, err = Md5BigFile(path)
 				} else {
-					md5v, err = Md5SumFile(path)
+					md5v, err = Md5File(path)
 				}
 
 				select {
